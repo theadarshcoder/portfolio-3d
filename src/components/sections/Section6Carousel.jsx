@@ -148,7 +148,7 @@ const VISUAL_MAP = { telemetry:TelemetryCard, map:MapCard, archive:ArchiveCard, 
    HIGH-QUALITY INTERACTIVE 3D COIN — Three.js
    ───────────────────────────────────────────── */
 function useCoinScene(canvasRef) {
-  const scrollProgressRef = useRef(0)
+  const scrollDataRef = useRef({ progress: 0, scale: 1.0 })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -356,26 +356,22 @@ function useCoinScene(canvasRef) {
     group.add(coin)
     scene.add(group)
 
-    // Base presentation orientation: tilted ~60 deg towards camera so top face is ALWAYS clearly shown
-    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (PERFECTLY CENTERED VERTICAL TRAVEL) ─── */
-    let currentProgress = 0, alive = true
+    /* ─── SCROLL-DRIVEN ANIMATION LOOP (CENTERED & SYNCHRONIZED ZOOM) ─── */
+    let currentProgress = 0, currentScale = 1.0, alive = true
     const loop = () => {
       if (!alive) return
       requestAnimationFrame(loop)
 
-      // Smooth damped interpolation to scroll progress
-      const target = scrollProgressRef.current
-      currentProgress += (target - currentProgress) * 0.08
+      const target = scrollDataRef.current
+      currentProgress += (target.progress - currentProgress) * 0.08
+      currentScale += (target.scale - currentScale) * 0.08
 
-      // 1. PERFECT VERTICAL TRAVEL: Strictly down the center vertical midline (x = 0)
-      group.position.x = 0
-      group.position.z = 0
-      group.position.y = (0.5 - currentProgress) * 0.7
+      // Locked in dead center of screen
+      group.position.set(0, 0, 0)
+      group.rotation.set(1.05, 0, 0)
+      group.scale.set(currentScale, currentScale, currentScale)
 
-      // 2. SYMMETRICAL 3D SAUCER PITCH & AXIAL SPIN
-      group.rotation.x = 1.05
-      group.rotation.y = 0
-      group.rotation.z = 0
+      // Continuous axial rotation tied to scroll
       coin.rotation.y = currentProgress * Math.PI * 4
 
       renderer.render(scene, camera)
@@ -388,28 +384,29 @@ function useCoinScene(canvasRef) {
     }
   }, [canvasRef])
 
-  return scrollProgressRef
+  return scrollDataRef
 }
 
 /* ─────────────────────────────────────────────
    MAIN COMPONENT
    ───────────────────────────────────────────── */
 export default function Section6Carousel() {
-  const sectionRef   = useRef(null)
-  const canvasRef    = useRef(null)
-  const leftRefs     = useRef([])
-  const rightRefs    = useRef([])
-  const rafRef       = useRef(null)
-  const scrollProgressRef = useCoinScene(canvasRef)
+  const sectionRef    = useRef(null)
+  const canvasRef     = useRef(null)
+  const leftRefs      = useRef([])
+  const rightRefs     = useRef([])
+  const rafRef        = useRef(null)
+  const scrollDataRef = useCoinScene(canvasRef)
 
   const frame = useCallback(() => {
     rafRef.current = requestAnimationFrame(frame)
     const section = sectionRef.current; if (!section) return
     const rect = section.getBoundingClientRect(), vh = window.innerHeight
     const progress = clamp(-rect.top / (rect.height - vh), 0, 1)
-    scrollProgressRef.current = progress
 
     const vcenter = vh / 2, falloff = vh * 0.40
+    let maxCoinScale = 0.76
+
     PROJECTS.forEach((proj, i) => {
       const left = leftRefs.current[i], right = rightRefs.current[i]
       if (!left || !right) return
@@ -432,17 +429,22 @@ export default function Section6Carousel() {
       if (cat)   cat.style.color   = lerpRGB('#6c6056',proj.accent,t)
       if (num)   num.style.color   = lerpRGB('#5c5046',proj.accent,t)
 
-      // Image scale & vibrant filter: crisp resting state -> glowing vivid active state
+      // Image scale: zooms in from 0.76 -> 1.0
       const enterRaw = cy <= vcenter ? 1 : clamp(1 - (cy - vcenter) / falloff, 0, 1)
       const enterT = smoothstep(enterRaw)
+      const imgScale = 0.76 + enterT * 0.24
       const imgInner = right.querySelector('.img-inner')
       if (imgInner) {
-        const scale = 0.76 + enterT * 0.24
-        imgInner.style.transform = `scale(${scale.toFixed(4)})`
+        imgInner.style.transform = `scale(${imgScale.toFixed(4)})`
         const gray = (0.35 * (1 - t)).toFixed(3)
         const bright = (0.82 + t * 0.28).toFixed(3)
         const contrast = (1.04 + t * 0.16).toFixed(3)
         imgInner.style.filter = `grayscale(${gray}) brightness(${bright}) contrast(${contrast})`
+      }
+
+      // Synchronize coin scale with active row zoom
+      if (t > 0.05) {
+        maxCoinScale = Math.max(maxCoinScale, 0.76 + t * 0.24)
       }
 
       if (t > 0.65) {
@@ -452,7 +454,9 @@ export default function Section6Carousel() {
         if (title) title.style.textShadow = 'none'
       }
     })
-  }, [scrollProgressRef])
+
+    scrollDataRef.current = { progress, scale: maxCoinScale }
+  }, [scrollDataRef])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(frame)
@@ -462,13 +466,19 @@ export default function Section6Carousel() {
   const COL_LEFT = '30vw'
   const COL_CENTER = '40vw'
   const COL_RIGHT = '30vw'
-  const ROW_H = '44vh'
+  const ROW_H = '46vh'
 
   return (
     <section
       ref={sectionRef}
       id="section-6"
-      style={{ background:'#0d0806', position:'relative', width:'100%', overflow:'hidden' }}
+      style={{
+        background: '#0d0806',
+        position: 'relative',
+        width: '100%',
+        overflow: 'hidden',
+        paddingBottom: '28vh',
+      }}
     >
       {/* ── Section header — edge to edge ── */}
       <div style={{
