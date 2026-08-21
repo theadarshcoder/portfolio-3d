@@ -148,8 +148,7 @@ const VISUAL_MAP = { telemetry:TelemetryCard, map:MapCard, archive:ArchiveCard, 
    HIGH-QUALITY INTERACTIVE 3D COIN — Three.js
    ───────────────────────────────────────────── */
 function useCoinScene(canvasRef) {
-  const targetRotRef = useRef(0)
-  const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 })
+  const scrollProgressRef = useRef(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -160,115 +159,157 @@ function useCoinScene(canvasRef) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(W, H, false)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.45
+    renderer.toneMappingExposure = 1.4
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 100)
-    camera.position.set(0, 0, 4.4)
+    camera.position.set(0, 0, 4.3)
 
-    /* ─── VIBRANT STUDIO LIGHTING ─── */
-    // 1. Warm ambient baseline
-    scene.add(new THREE.AmbientLight(0x5c381e, 1.4))
+    /* ─── STUDIO LIGHTING ─── */
+    scene.add(new THREE.AmbientLight(0x5c381e, 1.2))
 
-    // 2. Main Key Light — directly illuminating the face from top-front
     const key = new THREE.DirectionalLight(0xfff0d0, 5.0)
-    key.position.set(2, 6, 5)
+    key.position.set(3, 5, 4)
     scene.add(key)
 
-    // 3. Warm amber fill light
-    const fill = new THREE.PointLight(0xff9933, 4.5, 20)
-    fill.position.set(-4, 2, 4)
+    const fill = new THREE.PointLight(0xff9933, 4.0, 20)
+    fill.position.set(-4, -2, 3)
     scene.add(fill)
 
-    // 4. Rim highlight on bottom edge
     const rim = new THREE.PointLight(0xffd599, 3.5, 15)
-    rim.position.set(4, -3, 3)
+    rim.position.set(3, -3, 3)
     scene.add(rim)
 
-    // 5. Interactive cursor spotlight
-    const cursorLight = new THREE.PointLight(0xffcc66, 3.0, 10)
-    cursorLight.position.set(0, 2, 4)
-    scene.add(cursorLight)
+    const topLight = new THREE.PointLight(0xffeedd, 3.0, 12)
+    topLight.position.set(0, 4, 2)
+    scene.add(topLight)
 
-    /* ─── HIGH-QUALITY TEXTURE ─── */
+    /* ─── HIGH-CONTRAST TACTILE TEXTURE ─── */
     const SZ = 1024
     const tc = document.createElement('canvas')
     tc.width = SZ; tc.height = SZ
     const cx = tc.getContext('2d')
 
-    // Rich golden cork gradient
+    // Rich metallic gold gradient
     const base = cx.createRadialGradient(512, 512, 0, 512, 512, 512)
-    base.addColorStop(0,   '#f4cf80')
-    base.addColorStop(0.25,'#e0b050')
-    base.addColorStop(0.55,'#ca9236')
-    base.addColorStop(0.85,'#a86e24')
-    base.addColorStop(1,   '#744614')
+    base.addColorStop(0,   '#f8d88c')
+    base.addColorStop(0.3, '#dfab48')
+    base.addColorStop(0.65,'#c48c2c')
+    base.addColorStop(0.85,'#9c6518')
+    base.addColorStop(1,   '#5c340c')
     cx.fillStyle = base
     cx.fillRect(0, 0, SZ, SZ)
 
-    // Concentric machined grooves
-    for (let r = 50; r < 495; r += 16) {
+    // Outer notched gear teeth (makes scroll rotation immediately noticeable)
+    cx.save()
+    cx.translate(512, 512)
+    for (let i = 0; i < 72; i++) {
+      const angle = (i * 360 / 72) * Math.PI / 180
       cx.beginPath()
-      cx.arc(512, 512, r, 0, Math.PI*2)
-      const alpha = 0.09 + (r % 48 === 0 ? 0.16 : 0)
-      cx.strokeStyle = `rgba(0,0,0,${alpha})`
-      cx.lineWidth = r % 48 === 0 ? 2.0 : 0.8
+      cx.arc(0, 0, 485, angle - 0.02, angle + 0.02)
+      cx.lineWidth = 18
+      cx.strokeStyle = i % 2 === 0 ? 'rgba(30,15,5,0.75)' : 'rgba(255,230,150,0.6)'
       cx.stroke()
     }
 
-    // Radial brushed metallic strokes
-    cx.save()
-    cx.translate(512, 512)
-    for (let a = 0; a < 360; a += 1.0) {
-      const rad = a * Math.PI / 180
-      const inner = 50 + (a % 9) * 2
-      const outer = 495 - (a % 7) * 3
+    // Outer dashed precision border
+    cx.beginPath()
+    cx.arc(0, 0, 460, 0, Math.PI * 2)
+    cx.setLineDash([8, 6])
+    cx.lineWidth = 3
+    cx.strokeStyle = 'rgba(20,10,0,0.65)'
+    cx.stroke()
+    cx.setLineDash([])
+
+    // Quadrant dividers & degree angle markings
+    for (let deg = 0; deg < 360; deg += 45) {
+      const rad = deg * Math.PI / 180
       cx.beginPath()
-      cx.moveTo(Math.cos(rad)*inner, Math.sin(rad)*inner)
-      cx.lineTo(Math.cos(rad)*outer, Math.sin(rad)*outer)
-      cx.strokeStyle = a % 3 === 0 ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)'
+      cx.moveTo(Math.cos(rad) * 90, Math.sin(rad) * 90)
+      cx.lineTo(Math.cos(rad) * 440, Math.sin(rad) * 440)
+      cx.lineWidth = deg % 90 === 0 ? 2.5 : 1
+      cx.strokeStyle = deg % 90 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.18)'
+      cx.stroke()
+
+      // Degree labels
+      if (deg % 90 === 0) {
+        cx.save()
+        cx.translate(Math.cos(rad) * 415, Math.sin(rad) * 415)
+        cx.rotate(rad + Math.PI / 2)
+        cx.fillStyle = 'rgba(40,20,5,0.75)'
+        cx.font = 'bold 16px monospace'
+        cx.textAlign = 'center'
+        cx.fillText(`${deg}°`, 0, 0)
+        cx.restore()
+      }
+    }
+
+    // Concentric machined grooves
+    for (let r = 80; r < 440; r += 24) {
+      cx.beginPath()
+      cx.arc(0, 0, r, 0, Math.PI * 2)
+      cx.strokeStyle = r % 72 === 0 ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.12)'
+      cx.lineWidth = r % 72 === 0 ? 2 : 0.8
+      cx.stroke()
+    }
+
+    // Radial brushed metallic streaks
+    for (let a = 0; a < 360; a += 1.5) {
+      const rad = a * Math.PI / 180
+      cx.beginPath()
+      cx.moveTo(Math.cos(rad) * 85, Math.sin(rad) * 85)
+      cx.lineTo(Math.cos(rad) * 450, Math.sin(rad) * 450)
+      cx.strokeStyle = a % 3 === 0 ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'
       cx.lineWidth = 0.5
       cx.stroke()
     }
+
+    // Circular Arc Text
+    cx.fillStyle = 'rgba(50,25,5,0.85)'
+    cx.font = '900 22px monospace'
+    cx.textAlign = 'center'
+    const text = '★ ADARSH SHARMA • SYSTEM ARCHITECT • CORE 2026 ★'
+    const charAngle = (Math.PI * 1.6) / text.length
+    for (let i = 0; i < text.length; i++) {
+      const theta = -Math.PI * 0.8 + i * charAngle
+      cx.save()
+      cx.translate(Math.cos(theta) * 310, Math.sin(theta) * 310)
+      cx.rotate(theta + Math.PI / 2)
+      cx.fillText(text[i], 0, 0)
+      cx.restore()
+    }
+
+    // Center circular badge & monogram
+    const badge = cx.createRadialGradient(0, 0, 0, 0, 0, 140)
+    badge.addColorStop(0,   'rgba(255,240,180,0.7)')
+    badge.addColorStop(0.7, 'rgba(210,150,50,0.4)')
+    badge.addColorStop(1,   'rgba(60,30,5,0.85)')
+    cx.fillStyle = badge
+    cx.beginPath()
+    cx.arc(0, 0, 130, 0, Math.PI * 2)
+    cx.fill()
+    cx.strokeStyle = 'rgba(255,255,255,0.3)'
+    cx.lineWidth = 3
+    cx.stroke()
+
+    cx.fillStyle = 'rgba(40,18,5,0.9)'
+    cx.font = 'bold 100px Georgia, serif'
+    cx.textBaseline = 'middle'
+    cx.fillText('A', 0, 8)
     cx.restore()
 
-    // Inner raised center plateau
-    const plateau = cx.createRadialGradient(512, 512, 0, 512, 512, 220)
-    plateau.addColorStop(0,   'rgba(255,230,140,0.55)')
-    plateau.addColorStop(0.65,'rgba(255,190,70,0.20)')
-    plateau.addColorStop(1,   'rgba(0,0,0,0)')
-    cx.fillStyle = plateau
-    cx.beginPath()
-    cx.arc(512, 512, 220, 0, Math.PI*2)
-    cx.fill()
-
-    // Fine organic noise texture
+    // Fine organic noise
     const imgData = cx.getImageData(0, 0, SZ, SZ)
     const d = imgData.data
     for (let i = 0; i < d.length; i += 4) {
-      const n = (Math.random() - 0.5) * 22
-      d[i]   = Math.max(0, Math.min(255, d[i]+n))
-      d[i+1] = Math.max(0, Math.min(255, d[i+1]+n*0.85))
-      d[i+2] = Math.max(0, Math.min(255, d[i+2]+n*0.5))
+      const n = (Math.random() - 0.5) * 18
+      d[i]   = Math.max(0, Math.min(255, d[i] + n))
+      d[i+1] = Math.max(0, Math.min(255, d[i+1] + n * 0.8))
+      d[i+2] = Math.max(0, Math.min(255, d[i+2] + n * 0.4))
     }
     cx.putImageData(imgData, 0, 0)
-
-    // Center emblem symbol
-    cx.fillStyle = 'rgba(70,35,10,0.6)'
-    cx.font = 'bold 150px Georgia, serif'
-    cx.textAlign = 'center'
-    cx.textBaseline = 'middle'
-    cx.fillText('A', 512, 520)
-
-    // Highlight sheen
-    const spec = cx.createRadialGradient(370, 340, 0, 370, 340, 240)
-    spec.addColorStop(0,   'rgba(255,255,255,0.24)')
-    spec.addColorStop(0.5, 'rgba(255,255,255,0.08)')
-    spec.addColorStop(1,   'rgba(255,255,255,0)')
-    cx.fillStyle = spec
-    cx.fillRect(0, 0, SZ, SZ)
 
     const texture = new THREE.CanvasTexture(tc)
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy()
@@ -280,14 +321,14 @@ function useCoinScene(canvasRef) {
     nc.fillStyle = '#8080ff'
     nc.fillRect(0, 0, 512, 512)
     nc.save(); nc.translate(256, 256)
-    for (let r2 = 25; r2 < 248; r2 += 16) {
-      nc.beginPath(); nc.arc(0, 0, r2, 0, Math.PI*2)
+    for (let r2 = 20; r2 < 245; r2 += 16) {
+      nc.beginPath(); nc.arc(0, 0, r2, 0, Math.PI * 2)
       nc.strokeStyle = 'rgba(120,120,255,0.45)'; nc.lineWidth = 1.4; nc.stroke()
     }
     nc.restore()
     const normalMap = new THREE.CanvasTexture(nm)
 
-    /* ─── COIN / SAUCER GEOMETRY ─── */
+    /* ─── COIN GEOMETRY ─── */
     const profile = []
     const R = 1.05, T = 0.12, B = 0.05
     profile.push(new THREE.Vector2(0.01,    -(T + B)))
@@ -303,58 +344,40 @@ function useCoinScene(canvasRef) {
     const mat = new THREE.MeshStandardMaterial({
       map: texture,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.45, 0.45),
-      metalness: 0.72,
-      roughness: 0.32,
+      normalScale: new THREE.Vector2(0.5, 0.5),
+      metalness: 0.76,
+      roughness: 0.28,
     })
 
     const coin = new THREE.Mesh(geo, mat)
     coin.castShadow = true
     coin.receiveShadow = true
 
-    // Group wrapper with chic saucer tilt facing viewer
     const group = new THREE.Group()
     group.add(coin)
     scene.add(group)
 
-    // Base presentation orientation: tilted forward so top face is ALWAYS clearly seen
-    const BASE_PITCH = 1.05  // Tilted towards camera (~60 deg)
-    const BASE_ROLL  = -0.22 // Subtle diagonal tilt
-    group.rotation.x = BASE_PITCH
-    group.rotation.z = BASE_ROLL
-
-    /* ─── INTERACTIVE MOUSE TRACKING ─── */
-    const handleMouseMove = (e) => {
-      const rect = canvas.getBoundingClientRect()
-      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-      const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
-      mouseRef.current.targetX = Math.max(-1, Math.min(1, x))
-      mouseRef.current.targetY = Math.max(-1, Math.min(1, y))
-    }
-    window.addEventListener('pointermove', handleMouseMove, { passive: true })
-
-    /* ─── RENDER LOOP ─── */
-    let currentSpin = 0, alive = true
+    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP ─── */
+    let currentProgress = 0, alive = true
     const loop = () => {
       if (!alive) return
       requestAnimationFrame(loop)
 
-      // Smooth lag on scroll rotation (spins continuously on its tilted face)
-      currentSpin += (targetRotRef.current - currentSpin) * 0.08
-      coin.rotation.y = currentSpin
+      // Smooth damped interpolation to scroll progress
+      const target = scrollProgressRef.current
+      currentProgress += (target - currentProgress) * 0.08
 
-      // Interactive cursor parallax interpolation
-      mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.06
-      mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.06
+      // Continuous 3D tumbling & spinning rotation strictly tied to scroll
+      // 1. Pitch tilt (tumbles smoothly as you scroll down)
+      group.rotation.x = 0.85 + Math.sin(currentProgress * Math.PI) * 0.35
+      // 2. Yaw rotation (angles dynamically left to right)
+      group.rotation.y = (currentProgress - 0.5) * 0.85
+      // 3. Roll & axial spin (spins continuously on its surface)
+      coin.rotation.y = currentProgress * Math.PI * 4
+      group.rotation.z = -0.2 + (currentProgress - 0.5) * 0.4
 
-      // Tilt group with mouse for tangible 3D depth
-      group.rotation.x = BASE_PITCH + mouseRef.current.y * 0.22
-      group.rotation.y = mouseRef.current.x * 0.35
-      group.rotation.z = BASE_ROLL + mouseRef.current.x * 0.12
-
-      // Dynamic cursor light tracking
-      cursorLight.position.x = mouseRef.current.x * 4
-      cursorLight.position.y = 2 + mouseRef.current.y * 3
+      // Gentle floating bobbing
+      group.position.y = Math.sin(currentProgress * Math.PI * 2) * 0.12
 
       renderer.render(scene, camera)
     }
@@ -362,12 +385,11 @@ function useCoinScene(canvasRef) {
 
     return () => {
       alive = false
-      window.removeEventListener('pointermove', handleMouseMove)
       renderer.dispose()
     }
   }, [canvasRef])
 
-  return targetRotRef
+  return scrollProgressRef
 }
 
 /* ─────────────────────────────────────────────
@@ -379,14 +401,14 @@ export default function Section6Carousel() {
   const leftRefs     = useRef([])
   const rightRefs    = useRef([])
   const rafRef       = useRef(null)
-  const targetRotRef = useCoinScene(canvasRef)
+  const scrollProgressRef = useCoinScene(canvasRef)
 
   const frame = useCallback(() => {
     rafRef.current = requestAnimationFrame(frame)
     const section = sectionRef.current; if (!section) return
     const rect = section.getBoundingClientRect(), vh = window.innerHeight
     const progress = clamp(-rect.top / (rect.height - vh), 0, 1)
-    targetRotRef.current = progress * 0.85 * Math.PI * 2
+    scrollProgressRef.current = progress
 
     const vcenter = vh / 2, falloff = vh * 0.40
     PROJECTS.forEach((proj, i) => {
@@ -431,7 +453,7 @@ export default function Section6Carousel() {
         if (title) title.style.textShadow = 'none'
       }
     })
-  }, [targetRotRef])
+  }, [scrollProgressRef])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(frame)
