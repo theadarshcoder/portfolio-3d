@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, Fragment } from 'react'
+import React, { useRef, useEffect, useCallback, useState } from 'react'
 import * as THREE from 'three'
 
 /* ─────────────────────────────────────────────
@@ -397,13 +397,19 @@ export default function Section6Carousel() {
   const rightRefs     = useRef([])
   const rafRef        = useRef(null)
   const scrollDataRef = useCoinScene(canvasRef)
+  const [coinVisible, setCoinVisible] = useState(false)
 
   const frame = useCallback(() => {
     rafRef.current = requestAnimationFrame(frame)
     const section = sectionRef.current; if (!section) return
-    const rect = section.getBoundingClientRect(), vh = window.innerHeight
-    const progress = clamp(-rect.top / (rect.height - vh), 0, 1)
+    const rect = section.getBoundingClientRect()
+    const vh = window.innerHeight
 
+    // Show coin only while section 6 is visible in viewport
+    const inView = rect.top < vh && rect.bottom > 0
+    setCoinVisible(inView)
+
+    const progress = clamp(-rect.top / (rect.height - vh), 0, 1)
     const vcenter = vh / 2, falloff = vh * 0.40
     let maxCoinScale = 0.76
 
@@ -415,7 +421,6 @@ export default function Section6Carousel() {
       const raw = clamp(1 - Math.abs(cy - vcenter) / falloff, 0, 1)
       const t = smoothstep(raw)
 
-      // Brighter, non-dull resting opacities
       left.style.opacity  = (0.45 + t * 0.55).toFixed(3)
       right.style.opacity = (0.55 + t * 0.45).toFixed(3)
 
@@ -429,7 +434,6 @@ export default function Section6Carousel() {
       if (cat)   cat.style.color   = lerpRGB('#6c6056',proj.accent,t)
       if (num)   num.style.color   = lerpRGB('#5c5046',proj.accent,t)
 
-      // Image scale: zooms in from 0.76 -> 1.0
       const enterRaw = cy <= vcenter ? 1 : clamp(1 - (cy - vcenter) / falloff, 0, 1)
       const enterT = smoothstep(enterRaw)
       const imgScale = 0.76 + enterT * 0.24
@@ -442,10 +446,7 @@ export default function Section6Carousel() {
         imgInner.style.filter = `grayscale(${gray}) brightness(${bright}) contrast(${contrast})`
       }
 
-      // Synchronize coin scale with active row zoom
-      if (t > 0.05) {
-        maxCoinScale = Math.max(maxCoinScale, 0.76 + t * 0.24)
-      }
+      if (t > 0.05) maxCoinScale = Math.max(maxCoinScale, 0.76 + t * 0.24)
 
       if (t > 0.65) {
         const b = (t - 0.65) / 0.35
@@ -456,7 +457,7 @@ export default function Section6Carousel() {
     })
 
     scrollDataRef.current = { progress, scale: maxCoinScale }
-  }, [scrollDataRef])
+  }, [scrollDataRef, setCoinVisible])
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(frame)
@@ -469,17 +470,65 @@ export default function Section6Carousel() {
   const ROW_H = '46vh'
 
   return (
-    <section
-      ref={sectionRef}
-      id="section-6"
-      style={{
-        background: '#0d0806',
-        position: 'relative',
-        width: '100%',
-        overflow: 'hidden',
-        paddingBottom: '28vh',
-      }}
-    >
+    <>
+      {/* ── COIN: position:fixed — always exactly centred in the viewport.
+          Fades in/out based on Section 6 visibility so it never bleeds into other sections. ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 380,
+          height: 380,
+          pointerEvents: 'none',
+          zIndex: 50,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: coinVisible ? 1 : 0,
+          transition: 'opacity 0.4s ease',
+        }}
+      >
+        <div style={{
+          position: 'absolute',
+          width: 500,
+          height: 500,
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse at center, rgba(255,160,50,0.22) 0%, rgba(200,100,20,0.10) 35%, transparent 70%)',
+          filter: 'blur(32px)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: 300,
+          height: 300,
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse at center, rgba(255,180,60,0.30) 0%, transparent 60%)',
+          filter: 'blur(16px)',
+          pointerEvents: 'none',
+        }} />
+        <canvas
+          ref={canvasRef}
+          width={380}
+          height={380}
+          style={{
+            width: 380,
+            height: 380,
+            display: 'block',
+            position: 'relative',
+            zIndex: 2,
+            filter: 'drop-shadow(0 24px 48px rgba(255,140,40,0.25)) drop-shadow(0 8px 20px rgba(0,0,0,0.8))',
+          }}
+        />
+      </div>
+
+      <section
+        ref={sectionRef}
+        id="section-6"
+        style={{ background: '#0d0806', position: 'relative', width: '100%' }}
+      >
       {/* ── Section header — edge to edge ── */}
       <div style={{
         display:'flex', alignItems:'center', gap:10,
@@ -624,75 +673,8 @@ export default function Section6Carousel() {
 
       {/* ── Closing bottom line ── */}
       <div style={{ borderTop:'1px dashed rgba(243,237,226,0.20)' }} />
-
-      {/*
-        ─── COIN OVERLAY ───
-        position:absolute on a full-height wrapper centered over the middle column (40vw).
-        Inner div is position:sticky so the coin tracks scroll within the section.
-      */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-          zIndex: 10,
-          display: 'flex',
-          justifyContent: 'center',
-        }}
-      >
-        <div style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          width: 380,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-        }}>
-          {/* CSS warm glow bloom — layered radial gradients */}
-          <div style={{
-            position: 'absolute',
-            width: 500,
-            height: 500,
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at center, rgba(255,160,50,0.22) 0%, rgba(200,100,20,0.10) 35%, transparent 70%)',
-            filter: 'blur(32px)',
-            transform: 'translateY(10px)',
-            pointerEvents: 'none',
-          }} />
-          <div style={{
-            position: 'absolute',
-            width: 300,
-            height: 300,
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at center, rgba(255,180,60,0.30) 0%, transparent 60%)',
-            filter: 'blur(16px)',
-            pointerEvents: 'none',
-          }} />
-
-          {/* The coin canvas */}
-          <canvas
-            ref={canvasRef}
-            width={380}
-            height={380}
-            style={{
-              width: 380,
-              height: 380,
-              display: 'block',
-              position: 'relative',
-              zIndex: 2,
-              /* Subtle drop shadow to reinforce 3D float */
-              filter: 'drop-shadow(0 24px 48px rgba(255,140,40,0.25)) drop-shadow(0 8px 20px rgba(0,0,0,0.8))',
-            }}
-          />
-        </div>
-      </div>
     </section>
+  </>
   )
 }
+
