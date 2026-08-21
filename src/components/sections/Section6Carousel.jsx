@@ -1,0 +1,664 @@
+import React, { useRef, useEffect, useCallback, Fragment } from 'react'
+import * as THREE from 'three'
+
+/* ─────────────────────────────────────────────
+   HELPERS
+   ───────────────────────────────────────────── */
+const lerpRGB = (from, to, t) => {
+  const p = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]
+  const [ar,ag,ab] = p(from), [br,bg,bb] = p(to)
+  return `rgb(${Math.round(ar+(br-ar)*t)},${Math.round(ag+(bg-ag)*t)},${Math.round(ab+(bb-ab)*t)})`
+}
+const smoothstep = t => t*t*(3-2*t)
+const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v))
+
+/* ─────────────────────────────────────────────
+   DATA
+   ───────────────────────────────────────────── */
+const PROJECTS = [
+  {
+    id:'vision-exam', number:'01', category:'SECURE CLIENT RUNTIME',
+    title:'Vision Exam Browser',
+    name:'Adarsh K.', role:'CS Engineer',
+    quote:'"Built a sandboxed OS-level browser that catches cheating in real-time. Webcam gaze, audio anomalies — zero false negatives."',
+    accentWords:['zero false negatives'],
+    stars:5, rating:'5/5',
+    link:'https://github.com', accent:'#e8843c',
+    image:'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80',
+  },
+  {
+    id:'exploro', number:'02', category:'SPATIAL INTELLIGENCE',
+    title:'Exploro Travel App',
+    name:'Adarsh K.', role:'React Native Dev',
+    quote:'"Multi-modal itinerary engine. Computes 4-city optimal routes in under 30ms, with offline vector maps cached locally."',
+    accentWords:['under 30ms'],
+    stars:5, rating:'5/5',
+    link:'https://github.com', accent:'#3ce8a0',
+    image:'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
+  },
+  {
+    id:'examvault', number:'03', category:'DISTRIBUTED ARCHIVAL',
+    title:'ExamVault Archive',
+    name:'Adarsh K.', role:'Full-Stack',
+    quote:'"10,000+ students. Millions of academic queries. Full-text fuzzy indexing with 38ms p99 latency at the edge."',
+    accentWords:['38ms p99 latency'],
+    stars:5, rating:'5/5',
+    link:'https://github.com', accent:'#a78bfa',
+    image:'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800&auto=format&fit=crop&q=80',
+  },
+  {
+    id:'pgmpy', number:'04', category:'OPEN-SOURCE ML SYSTEMS',
+    title:'pgmpy Bayesian Engine',
+    name:'Adarsh K.', role:'OSS Contributor',
+    quote:'"18.4× faster Bayesian inference. Vectorized Rust FFI kernels replacing Python loops — I made pgmpy actually fast."',
+    accentWords:['18.4× faster'],
+    stars:5, rating:'5/5',
+    link:'https://github.com', accent:'#e8843c',
+    image:'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80',
+  },
+]
+
+/* ─────────────────────────────────────────────
+   ACCENT QUOTE
+   ───────────────────────────────────────────── */
+function RichQuote({ text, accentWords, accent }) {
+  let parts = [{ str: text, isAccent: false }]
+  accentWords.forEach(word => {
+    const next = []
+    parts.forEach(part => {
+      if (part.isAccent) { next.push(part); return }
+      const idx = part.str.toLowerCase().indexOf(word.toLowerCase())
+      if (idx === -1) { next.push(part); return }
+      if (idx > 0) next.push({ str: part.str.slice(0, idx), isAccent: false })
+      next.push({ str: part.str.slice(idx, idx + word.length), isAccent: true })
+      if (idx + word.length < part.str.length) next.push({ str: part.str.slice(idx + word.length), isAccent: false })
+    })
+    parts = next
+  })
+  return <span>{parts.map((p,i) => p.isAccent ? <span key={i} style={{ color:accent }}>{p.str}</span> : <span key={i}>{p.str}</span>)}</span>
+}
+
+/* ─────────────────────────────────────────────
+   VISUAL CARDS
+   ───────────────────────────────────────────── */
+function TelemetryCard() {
+  return (
+    <div style={{ fontFamily:'monospace', fontSize:11, lineHeight:1.8 }}>
+      <div style={{ color:'#e8843c', letterSpacing:2, fontSize:10, marginBottom:8 }}>● ACTIVE SECURE LOCKDOWN</div>
+      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+        <span style={{ color:'#8c8074' }}>PROCESS INTEGRITY</span><span style={{ color:'#3ce87c' }}>LOCKED // 0 LEAKS</span>
+      </div>
+      <div style={{ height:3, background:'#1a1208', borderRadius:2, marginBottom:10, overflow:'hidden' }}>
+        <div style={{ height:'100%', width:'100%', background:'linear-gradient(90deg,#e8843c,#3ce87c)' }} />
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+        {[['GAZE VECTOR','CENTER (0.98)'],['AUDIO LATENCY','14ms STREAM']].map(([l,v]) => (
+          <div key={l} style={{ padding:'6px 8px', background:'rgba(255,255,255,0.04)', borderRadius:4 }}>
+            <div style={{ color:'#8c8074', fontSize:9, marginBottom:1 }}>{l}</div>
+            <div style={{ color:'#f3ede2', fontWeight:700 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+function MapCard() {
+  const dots = Array.from({length:16},(_,i)=>({x:8+(i*43)%82,y:10+(i*53)%75,s:1.5+(i%3)}))
+  return (
+    <div style={{ fontFamily:'monospace', fontSize:11 }}>
+      <div style={{ color:'#3ce8a0', letterSpacing:2, fontSize:10, marginBottom:8 }}>⊕ GEO-SPATIAL ROUTING</div>
+      <div style={{ position:'relative', height:64, background:'rgba(60,232,160,0.04)', borderRadius:4, marginBottom:8, overflow:'hidden' }}>
+        {dots.map((d,i) => <div key={i} style={{ position:'absolute', left:`${d.x}%`, top:`${d.y}%`, width:d.s, height:d.s, borderRadius:'50%', background:'#3ce8a0', opacity:0.5 }} />)}
+        <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%' }} viewBox="0 0 100 64">
+          <polyline points="10,52 28,32 52,20 82,10" fill="none" stroke="#3ce8a0" strokeWidth="1.2" strokeDasharray="3 2" opacity="0.65" />
+        </svg>
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between' }}><span style={{ color:'#8c8074' }}>SFO→NRT→SIN→LHR</span><span style={{ color:'#e8843c' }}>-34% EMISSIONS</span></div>
+    </div>
+  )
+}
+function ArchiveCard() {
+  return (
+    <div style={{ fontFamily:'monospace', fontSize:11 }}>
+      <div style={{ color:'#a78bfa', letterSpacing:2, fontSize:10, marginBottom:8 }}>≡ DISTRIBUTED SEARCH</div>
+      <div style={{ marginBottom:8 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}><span style={{ color:'#8c8074' }}>SPEED p99</span><span style={{ color:'#e8843c' }}>38ms</span></div>
+        <div style={{ height:3, background:'#1a1208', borderRadius:2, overflow:'hidden' }}><div style={{ height:'100%', width:'74%', background:'#e8843c' }} /></div>
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between' }}><span style={{ color:'#8c8074' }}>STUDENTS SERVED</span><span style={{ color:'#f3ede2', fontWeight:700 }}>10,482</span></div>
+    </div>
+  )
+}
+function TerminalCard() {
+  return (
+    <div style={{ fontFamily:'monospace', fontSize:11 }}>
+      <div style={{ color:'#3ce87c', letterSpacing:2, fontSize:10, marginBottom:8 }}>$ PYO3 VECTORIZED KERNEL</div>
+      <div style={{ padding:'8px 10px', background:'rgba(0,0,0,0.45)', borderRadius:4, lineHeight:1.9 }}>
+        <div><span style={{ color:'#8c8074' }}>$ </span><span style={{ color:'#f3ede2' }}>cargo bench --bench inference</span></div>
+        <div><span style={{ color:'#8c8074' }}>&gt; </span><span style={{ color:'#3ce87c' }}>Python: 1,842ms</span></div>
+        <div><span style={{ color:'#8c8074' }}>&gt; </span><span style={{ color:'#e8843c' }}>Rust:   100ms</span></div>
+        <div style={{ marginTop:4, color:'#f3ede2', fontWeight:800 }}>SPEEDUP: 18.4×</div>
+      </div>
+    </div>
+  )
+}
+const VISUAL_MAP = { telemetry:TelemetryCard, map:MapCard, archive:ArchiveCard, terminal:TerminalCard }
+
+/* ─────────────────────────────────────────────
+   HIGH-QUALITY INTERACTIVE 3D COIN — Three.js
+   ───────────────────────────────────────────── */
+function useCoinScene(canvasRef) {
+  const targetRotRef = useRef(0)
+  const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 })
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const W = 380, H = 380
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setSize(W, H, false)
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.45
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+
+    const scene = new THREE.Scene()
+    const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 100)
+    camera.position.set(0, 0, 4.4)
+
+    /* ─── VIBRANT STUDIO LIGHTING ─── */
+    // 1. Warm ambient baseline
+    scene.add(new THREE.AmbientLight(0x5c381e, 1.4))
+
+    // 2. Main Key Light — directly illuminating the face from top-front
+    const key = new THREE.DirectionalLight(0xfff0d0, 5.0)
+    key.position.set(2, 6, 5)
+    scene.add(key)
+
+    // 3. Warm amber fill light
+    const fill = new THREE.PointLight(0xff9933, 4.5, 20)
+    fill.position.set(-4, 2, 4)
+    scene.add(fill)
+
+    // 4. Rim highlight on bottom edge
+    const rim = new THREE.PointLight(0xffd599, 3.5, 15)
+    rim.position.set(4, -3, 3)
+    scene.add(rim)
+
+    // 5. Interactive cursor spotlight
+    const cursorLight = new THREE.PointLight(0xffcc66, 3.0, 10)
+    cursorLight.position.set(0, 2, 4)
+    scene.add(cursorLight)
+
+    /* ─── HIGH-QUALITY TEXTURE ─── */
+    const SZ = 1024
+    const tc = document.createElement('canvas')
+    tc.width = SZ; tc.height = SZ
+    const cx = tc.getContext('2d')
+
+    // Rich golden cork gradient
+    const base = cx.createRadialGradient(512, 512, 0, 512, 512, 512)
+    base.addColorStop(0,   '#f4cf80')
+    base.addColorStop(0.25,'#e0b050')
+    base.addColorStop(0.55,'#ca9236')
+    base.addColorStop(0.85,'#a86e24')
+    base.addColorStop(1,   '#744614')
+    cx.fillStyle = base
+    cx.fillRect(0, 0, SZ, SZ)
+
+    // Concentric machined grooves
+    for (let r = 50; r < 495; r += 16) {
+      cx.beginPath()
+      cx.arc(512, 512, r, 0, Math.PI*2)
+      const alpha = 0.09 + (r % 48 === 0 ? 0.16 : 0)
+      cx.strokeStyle = `rgba(0,0,0,${alpha})`
+      cx.lineWidth = r % 48 === 0 ? 2.0 : 0.8
+      cx.stroke()
+    }
+
+    // Radial brushed metallic strokes
+    cx.save()
+    cx.translate(512, 512)
+    for (let a = 0; a < 360; a += 1.0) {
+      const rad = a * Math.PI / 180
+      const inner = 50 + (a % 9) * 2
+      const outer = 495 - (a % 7) * 3
+      cx.beginPath()
+      cx.moveTo(Math.cos(rad)*inner, Math.sin(rad)*inner)
+      cx.lineTo(Math.cos(rad)*outer, Math.sin(rad)*outer)
+      cx.strokeStyle = a % 3 === 0 ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)'
+      cx.lineWidth = 0.5
+      cx.stroke()
+    }
+    cx.restore()
+
+    // Inner raised center plateau
+    const plateau = cx.createRadialGradient(512, 512, 0, 512, 512, 220)
+    plateau.addColorStop(0,   'rgba(255,230,140,0.55)')
+    plateau.addColorStop(0.65,'rgba(255,190,70,0.20)')
+    plateau.addColorStop(1,   'rgba(0,0,0,0)')
+    cx.fillStyle = plateau
+    cx.beginPath()
+    cx.arc(512, 512, 220, 0, Math.PI*2)
+    cx.fill()
+
+    // Fine organic noise texture
+    const imgData = cx.getImageData(0, 0, SZ, SZ)
+    const d = imgData.data
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 22
+      d[i]   = Math.max(0, Math.min(255, d[i]+n))
+      d[i+1] = Math.max(0, Math.min(255, d[i+1]+n*0.85))
+      d[i+2] = Math.max(0, Math.min(255, d[i+2]+n*0.5))
+    }
+    cx.putImageData(imgData, 0, 0)
+
+    // Center emblem symbol
+    cx.fillStyle = 'rgba(70,35,10,0.6)'
+    cx.font = 'bold 150px Georgia, serif'
+    cx.textAlign = 'center'
+    cx.textBaseline = 'middle'
+    cx.fillText('A', 512, 520)
+
+    // Highlight sheen
+    const spec = cx.createRadialGradient(370, 340, 0, 370, 340, 240)
+    spec.addColorStop(0,   'rgba(255,255,255,0.24)')
+    spec.addColorStop(0.5, 'rgba(255,255,255,0.08)')
+    spec.addColorStop(1,   'rgba(255,255,255,0)')
+    cx.fillStyle = spec
+    cx.fillRect(0, 0, SZ, SZ)
+
+    const texture = new THREE.CanvasTexture(tc)
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy()
+
+    /* Normal Map for bevel & 3D micro-depth */
+    const nm = document.createElement('canvas')
+    nm.width = 512; nm.height = 512
+    const nc = nm.getContext('2d')
+    nc.fillStyle = '#8080ff'
+    nc.fillRect(0, 0, 512, 512)
+    nc.save(); nc.translate(256, 256)
+    for (let r2 = 25; r2 < 248; r2 += 16) {
+      nc.beginPath(); nc.arc(0, 0, r2, 0, Math.PI*2)
+      nc.strokeStyle = 'rgba(120,120,255,0.45)'; nc.lineWidth = 1.4; nc.stroke()
+    }
+    nc.restore()
+    const normalMap = new THREE.CanvasTexture(nm)
+
+    /* ─── COIN / SAUCER GEOMETRY ─── */
+    const profile = []
+    const R = 1.05, T = 0.12, B = 0.05
+    profile.push(new THREE.Vector2(0.01,    -(T + B)))
+    profile.push(new THREE.Vector2(R - B,   -(T + B)))
+    profile.push(new THREE.Vector2(R,       -T))
+    profile.push(new THREE.Vector2(R,        T))
+    profile.push(new THREE.Vector2(R - B,    T + B))
+    profile.push(new THREE.Vector2(0.01,     T + B))
+
+    const geo = new THREE.LatheGeometry(profile, 128)
+    geo.computeVertexNormals()
+
+    const mat = new THREE.MeshStandardMaterial({
+      map: texture,
+      normalMap: normalMap,
+      normalScale: new THREE.Vector2(0.45, 0.45),
+      metalness: 0.72,
+      roughness: 0.32,
+    })
+
+    const coin = new THREE.Mesh(geo, mat)
+    coin.castShadow = true
+    coin.receiveShadow = true
+
+    // Group wrapper with chic saucer tilt facing viewer
+    const group = new THREE.Group()
+    group.add(coin)
+    scene.add(group)
+
+    // Base presentation orientation: tilted forward so top face is ALWAYS clearly seen
+    const BASE_PITCH = 1.05  // Tilted towards camera (~60 deg)
+    const BASE_ROLL  = -0.22 // Subtle diagonal tilt
+    group.rotation.x = BASE_PITCH
+    group.rotation.z = BASE_ROLL
+
+    /* ─── INTERACTIVE MOUSE TRACKING ─── */
+    const handleMouseMove = (e) => {
+      const rect = canvas.getBoundingClientRect()
+      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
+      mouseRef.current.targetX = Math.max(-1, Math.min(1, x))
+      mouseRef.current.targetY = Math.max(-1, Math.min(1, y))
+    }
+    window.addEventListener('pointermove', handleMouseMove, { passive: true })
+
+    /* ─── RENDER LOOP ─── */
+    let currentSpin = 0, alive = true
+    const loop = () => {
+      if (!alive) return
+      requestAnimationFrame(loop)
+
+      // Smooth lag on scroll rotation (spins continuously on its tilted face)
+      currentSpin += (targetRotRef.current - currentSpin) * 0.08
+      coin.rotation.y = currentSpin
+
+      // Interactive cursor parallax interpolation
+      mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.06
+      mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.06
+
+      // Tilt group with mouse for tangible 3D depth
+      group.rotation.x = BASE_PITCH + mouseRef.current.y * 0.22
+      group.rotation.y = mouseRef.current.x * 0.35
+      group.rotation.z = BASE_ROLL + mouseRef.current.x * 0.12
+
+      // Dynamic cursor light tracking
+      cursorLight.position.x = mouseRef.current.x * 4
+      cursorLight.position.y = 2 + mouseRef.current.y * 3
+
+      renderer.render(scene, camera)
+    }
+    loop()
+
+    return () => {
+      alive = false
+      window.removeEventListener('pointermove', handleMouseMove)
+      renderer.dispose()
+    }
+  }, [canvasRef])
+
+  return targetRotRef
+}
+
+/* ─────────────────────────────────────────────
+   MAIN COMPONENT
+   ───────────────────────────────────────────── */
+export default function Section6Carousel() {
+  const sectionRef   = useRef(null)
+  const canvasRef    = useRef(null)
+  const leftRefs     = useRef([])
+  const rightRefs    = useRef([])
+  const rafRef       = useRef(null)
+  const targetRotRef = useCoinScene(canvasRef)
+
+  const frame = useCallback(() => {
+    rafRef.current = requestAnimationFrame(frame)
+    const section = sectionRef.current; if (!section) return
+    const rect = section.getBoundingClientRect(), vh = window.innerHeight
+    const progress = clamp(-rect.top / (rect.height - vh), 0, 1)
+    targetRotRef.current = progress * 0.85 * Math.PI * 2
+
+    const vcenter = vh / 2, falloff = vh * 0.40
+    PROJECTS.forEach((proj, i) => {
+      const left = leftRefs.current[i], right = rightRefs.current[i]
+      if (!left || !right) return
+      const r = left.getBoundingClientRect()
+      const cy = r.top + r.height / 2
+      const raw = clamp(1 - Math.abs(cy - vcenter) / falloff, 0, 1)
+      const t = smoothstep(raw)
+
+      // Brighter, non-dull resting opacities
+      left.style.opacity  = (0.45 + t * 0.55).toFixed(3)
+      right.style.opacity = (0.55 + t * 0.45).toFixed(3)
+
+      const title = left.querySelector('.pj-title')
+      const desc  = left.querySelector('.pj-desc')
+      const cat   = left.querySelector('.pj-cat')
+      const num   = left.querySelector('.pj-num')
+
+      if (title) title.style.color = lerpRGB('#9c8e82','#ffffff',t)
+      if (desc)  desc.style.color  = lerpRGB('#6c6056','#d8cec2',t)
+      if (cat)   cat.style.color   = lerpRGB('#6c6056',proj.accent,t)
+      if (num)   num.style.color   = lerpRGB('#5c5046',proj.accent,t)
+
+      // Image scale & vibrant filter: crisp resting state -> glowing vivid active state
+      const enterRaw = cy <= vcenter ? 1 : clamp(1 - (cy - vcenter) / falloff, 0, 1)
+      const enterT = smoothstep(enterRaw)
+      const imgInner = right.querySelector('.img-inner')
+      if (imgInner) {
+        const scale = 0.76 + enterT * 0.24
+        imgInner.style.transform = `scale(${scale.toFixed(4)})`
+        const gray = (0.35 * (1 - t)).toFixed(3)
+        const bright = (0.82 + t * 0.28).toFixed(3)
+        const contrast = (1.04 + t * 0.16).toFixed(3)
+        imgInner.style.filter = `grayscale(${gray}) brightness(${bright}) contrast(${contrast})`
+      }
+
+      if (t > 0.65) {
+        const b = (t - 0.65) / 0.35
+        if (title) title.style.textShadow = `0 0 ${(b*24).toFixed(1)}px rgba(232,132,60,${(b*0.55).toFixed(2)}),0 0 ${(b*48).toFixed(1)}px rgba(232,132,60,${(b*0.22).toFixed(2)})`
+      } else {
+        if (title) title.style.textShadow = 'none'
+      }
+    })
+  }, [targetRotRef])
+
+  useEffect(() => {
+    rafRef.current = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [frame])
+
+  const COL_LEFT = '30vw'
+  const COL_CENTER = '40vw'
+  const COL_RIGHT = '30vw'
+  const ROW_H = '44vh'
+
+  return (
+    <section
+      ref={sectionRef}
+      id="section-6"
+      style={{ background:'#0d0806', position:'relative', width:'100%', overflow:'hidden' }}
+    >
+      {/* ── Section header — edge to edge ── */}
+      <div style={{
+        display:'flex', alignItems:'center', gap:10,
+        padding:'14px 3vw',
+        borderBottom:'1px solid rgba(243,237,226,0.07)',
+      }}>
+        <span style={{ fontFamily:'monospace', fontSize:10, color:'#e8843c', letterSpacing:3 }}>06</span>
+        <span style={{ width:24, height:1, background:'#e8843c', display:'inline-block' }} />
+        <span style={{ fontFamily:'monospace', fontSize:10, color:'#5a504a', letterSpacing:3 }}>PROJECT SHOWCASE ROWS</span>
+        <span style={{ marginLeft:'auto', fontFamily:'monospace', fontSize:10, color:'#2e2520', letterSpacing:2 }}>SCROLL-DRIVEN 3D CORE</span>
+      </div>
+
+      {/*
+        Layout strategy:
+        - Each project = one full-width div (natural full-width dotted border)
+        - Inside each: 3-column CSS grid (left | center-spacer | right)
+        - Coin = absolute overlay + inner sticky, visually centered over center-spacer column
+      */}
+
+      {/* ── Project rows ── */}
+      {PROJECTS.map((proj, i) => {
+        const Visual = VISUAL_MAP[proj.visual]
+        return (
+          <div
+            key={proj.id}
+            style={{
+              borderTop: '1px dashed rgba(243,237,226,0.18)',
+              display: 'grid',
+              gridTemplateColumns: `${COL_LEFT} ${COL_CENTER} ${COL_RIGHT}`,
+              width: '100%',
+            }}
+          >
+            {/* ── Label sub-row (number + category) ── */}
+            <div style={{ gridColumn:'1/-1', display:'grid', gridTemplateColumns:`${COL_LEFT} ${COL_CENTER} ${COL_RIGHT}` }}>
+              <div style={{ padding:'7px 3vw', display:'flex', alignItems:'center', gap:8 }}>
+                <span
+                  className="pj-num"
+                  style={{ fontFamily:'monospace', fontSize:10, color:'#3a2f28', fontWeight:700, transition:'color 0.05s' }}
+                >
+                  {proj.number}
+                </span>
+                <span
+                  className="pj-cat"
+                  style={{ fontFamily:'monospace', fontSize:10, color:'#4a3f38', letterSpacing:2, transition:'color 0.05s' }}
+                >
+                  {proj.category}
+                </span>
+              </div>
+              <div />
+              <div />
+            </div>
+
+            {/* ── LEFT content — compact: stars + quote + name at bottom ── */}
+            <div
+              ref={el => { leftRefs.current[i] = el }}
+              style={{
+                gridColumn:1, height:ROW_H, padding:'12px 3vw 18px',
+                display:'flex', flexDirection:'column',
+                opacity:0.45, boxSizing:'border-box',
+              }}
+            >
+              {/* Stars */}
+              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
+                <div style={{ display:'flex', gap:2 }}>
+                  {Array.from({length:5}).map((_,si) => (
+                    <span key={si} style={{ color: si < proj.stars ? '#e8843c' : '#3a2f28', fontSize:12 }}>★</span>
+                  ))}
+                </div>
+                <span style={{ fontFamily:'monospace', fontSize:10, color:'#5a504a' }}>[{proj.rating}]</span>
+              </div>
+
+              {/* Quote — bold display typography */}
+              <p className="pj-title" style={{
+                fontSize:'clamp(15px, 1.55vw, 21px)', fontWeight:700, lineHeight:1.35,
+                margin:0, color:'#9c8e82', flex:1,
+                transition:'color 0.05s, text-shadow 0.05s',
+              }}>
+                <RichQuote text={proj.quote} accentWords={proj.accentWords} accent={proj.accent} />
+              </p>
+
+              {/* Name + role pushed to bottom */}
+              <div style={{ marginTop:10 }}>
+                <div className="pj-desc" style={{ fontSize:11, fontWeight:700, color:'#6c6056', letterSpacing:0.3, transition:'color 0.05s' }}>{proj.name}</div>
+                <div style={{ fontSize:10, color:'#5c5046', fontFamily:'monospace', letterSpacing:1 }}>{proj.role}</div>
+              </div>
+            </div>
+
+            {/* ── CENTER spacer — coin floats here via overlay ── */}
+            <div style={{ gridColumn:2, height:ROW_H }} />
+
+            {/* ── RIGHT — framed image matching reference aspect ratio ── */}
+            <div
+              ref={el => { rightRefs.current[i] = el }}
+              style={{
+                gridColumn:3, height:ROW_H,
+                padding:'12px 3vw 18px',
+                display:'flex',
+                alignItems:'center',
+                justifyContent:'center',
+                boxSizing:'border-box',
+                opacity:0.55,
+                transition:'opacity 0.05s',
+              }}
+            >
+              <div
+                style={{
+                  width:'100%',
+                  maxWidth:'420px',
+                  aspectRatio:'16 / 10',
+                  maxHeight:'90%',
+                  position:'relative',
+                  overflow:'hidden',
+                  borderRadius:'4px',
+                  background:'#1c130c',
+                }}
+              >
+                <img
+                  src={proj.image}
+                  alt={proj.title}
+                  loading="lazy"
+                  className="img-inner"
+                  style={{
+                    width:'100%',
+                    height:'100%',
+                    objectFit:'cover',
+                    display:'block',
+                    transform:'scale(0.76)',
+                    transformOrigin:'center center',
+                    filter:'grayscale(0.35) brightness(0.82) contrast(1.04)',
+                    transition:'filter 0.05s',
+                  }}
+                  onError={(e) => {
+                    // Fallback to high quality unsplash photo if any network issue
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      })}
+
+      {/* ── Closing bottom line ── */}
+      <div style={{ borderTop:'1px dashed rgba(243,237,226,0.20)' }} />
+
+      {/*
+        ─── COIN OVERLAY ───
+        position:absolute on a full-height wrapper centered over the middle column (40vw).
+        Inner div is position:sticky so the coin tracks scroll within the section.
+      */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: COL_CENTER,
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 10,
+        }}
+      >
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          {/* CSS warm glow bloom — layered radial gradients */}
+          <div style={{
+            position: 'absolute',
+            width: 500,
+            height: 500,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at center, rgba(255,160,50,0.22) 0%, rgba(200,100,20,0.10) 35%, transparent 70%)',
+            filter: 'blur(32px)',
+            transform: 'translateY(10px)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute',
+            width: 300,
+            height: 300,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at center, rgba(255,180,60,0.30) 0%, transparent 60%)',
+            filter: 'blur(16px)',
+            pointerEvents: 'none',
+          }} />
+
+          {/* The coin canvas */}
+          <canvas
+            ref={canvasRef}
+            width={380}
+            height={380}
+            style={{
+              width: 380,
+              height: 380,
+              display: 'block',
+              position: 'relative',
+              zIndex: 2,
+              /* Subtle drop shadow to reinforce 3D float */
+              filter: 'drop-shadow(0 24px 48px rgba(255,140,40,0.25)) drop-shadow(0 8px 20px rgba(0,0,0,0.8))',
+            }}
+          />
+        </div>
+      </div>
+    </section>
+  )
+}
