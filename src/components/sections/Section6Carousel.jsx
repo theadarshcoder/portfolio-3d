@@ -147,7 +147,7 @@ const VISUAL_MAP = { telemetry:TelemetryCard, map:MapCard, archive:ArchiveCard, 
 /* ─────────────────────────────────────────────
    HIGH-QUALITY INTERACTIVE 3D COIN — Three.js
    ───────────────────────────────────────────── */
-function useCoinScene(canvasRef) {
+function useCoinScene(canvasRef, moverRef) {
   const scrollProgressRef = useRef(0)
 
   useEffect(() => {
@@ -233,7 +233,6 @@ function useCoinScene(canvasRef) {
       cx.strokeStyle = deg % 90 === 0 ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.18)'
       cx.stroke()
 
-      // Degree labels
       if (deg % 90 === 0) {
         cx.save()
         cx.translate(Math.cos(rad) * 415, Math.sin(rad) * 415)
@@ -357,7 +356,7 @@ function useCoinScene(canvasRef) {
     group.add(coin)
     scene.add(group)
 
-    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP ─── */
+    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (VERTICAL + 3D ROTATION) ─── */
     let currentProgress = 0, alive = true
     const loop = () => {
       if (!alive) return
@@ -367,17 +366,20 @@ function useCoinScene(canvasRef) {
       const target = scrollProgressRef.current
       currentProgress += (target - currentProgress) * 0.08
 
-      // Continuous 3D tumbling & spinning rotation strictly tied to scroll
-      // 1. Pitch tilt (tumbles smoothly as you scroll down)
+      // 1. VERTICAL TRAVEL: Move coin throughout the screen from top to bottom as user scrolls (-32vh to +32vh)
+      const translateY = (currentProgress - 0.5) * 64 // in vh
+      if (moverRef?.current) {
+        moverRef.current.style.transform = `translateY(${translateY.toFixed(2)}vh)`
+      }
+
+      // 2. Continuous 3D tumbling & spinning rotation strictly tied to scroll
+      // Pitch tilt (tumbles smoothly as you scroll down)
       group.rotation.x = 0.85 + Math.sin(currentProgress * Math.PI) * 0.35
-      // 2. Yaw rotation (angles dynamically left to right)
+      // Yaw rotation (angles dynamically left to right)
       group.rotation.y = (currentProgress - 0.5) * 0.85
-      // 3. Roll & axial spin (spins continuously on its surface)
+      // Roll & axial spin (spins continuously on its surface)
       coin.rotation.y = currentProgress * Math.PI * 4
       group.rotation.z = -0.2 + (currentProgress - 0.5) * 0.4
-
-      // Gentle floating bobbing
-      group.position.y = Math.sin(currentProgress * Math.PI * 2) * 0.12
 
       renderer.render(scene, camera)
     }
@@ -387,7 +389,7 @@ function useCoinScene(canvasRef) {
       alive = false
       renderer.dispose()
     }
-  }, [canvasRef])
+  }, [canvasRef, moverRef])
 
   return scrollProgressRef
 }
@@ -398,10 +400,11 @@ function useCoinScene(canvasRef) {
 export default function Section6Carousel() {
   const sectionRef   = useRef(null)
   const canvasRef    = useRef(null)
+  const moverRef     = useRef(null)
   const leftRefs     = useRef([])
   const rightRefs    = useRef([])
   const rafRef       = useRef(null)
-  const scrollProgressRef = useCoinScene(canvasRef)
+  const scrollProgressRef = useCoinScene(canvasRef, moverRef)
 
   const frame = useCallback(() => {
     rafRef.current = requestAnimationFrame(frame)
@@ -643,42 +646,54 @@ export default function Section6Carousel() {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          {/* CSS warm glow bloom — layered radial gradients */}
-          <div style={{
-            position: 'absolute',
-            width: 500,
-            height: 500,
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at center, rgba(255,160,50,0.22) 0%, rgba(200,100,20,0.10) 35%, transparent 70%)',
-            filter: 'blur(32px)',
-            transform: 'translateY(10px)',
-            pointerEvents: 'none',
-          }} />
-          <div style={{
-            position: 'absolute',
-            width: 300,
-            height: 300,
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at center, rgba(255,180,60,0.30) 0%, transparent 60%)',
-            filter: 'blur(16px)',
-            pointerEvents: 'none',
-          }} />
-
-          {/* The coin canvas */}
-          <canvas
-            ref={canvasRef}
-            width={380}
-            height={380}
+          <div
+            ref={moverRef}
             style={{
-              width: 380,
-              height: 380,
-              display: 'block',
               position: 'relative',
-              zIndex: 2,
-              /* Subtle drop shadow to reinforce 3D float */
-              filter: 'drop-shadow(0 24px 48px rgba(255,140,40,0.25)) drop-shadow(0 8px 20px rgba(0,0,0,0.8))',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              willChange: 'transform',
             }}
-          />
+          >
+            {/* CSS warm glow bloom — layered radial gradients */}
+            <div style={{
+              position: 'absolute',
+              width: 500,
+              height: 500,
+              borderRadius: '50%',
+              background: 'radial-gradient(ellipse at center, rgba(255,160,50,0.22) 0%, rgba(200,100,20,0.10) 35%, transparent 70%)',
+              filter: 'blur(32px)',
+              transform: 'translateY(10px)',
+              pointerEvents: 'none',
+            }} />
+            <div style={{
+              position: 'absolute',
+              width: 300,
+              height: 300,
+              borderRadius: '50%',
+              background: 'radial-gradient(ellipse at center, rgba(255,180,60,0.30) 0%, transparent 60%)',
+              filter: 'blur(16px)',
+              pointerEvents: 'none',
+            }} />
+
+            {/* The coin canvas */}
+            <canvas
+              ref={canvasRef}
+              width={380}
+              height={380}
+              style={{
+                width: 380,
+                height: 380,
+                display: 'block',
+                position: 'relative',
+                zIndex: 2,
+                /* Subtle drop shadow to reinforce 3D float */
+                filter: 'drop-shadow(0 24px 48px rgba(255,140,40,0.25)) drop-shadow(0 8px 20px rgba(0,0,0,0.8))',
+              }}
+            />
+          </div>
         </div>
       </div>
     </section>
