@@ -357,12 +357,7 @@ function useCoinScene(canvasRef) {
     scene.add(group)
 
     // Base presentation orientation: tilted ~60 deg towards camera so top face is ALWAYS clearly shown
-    const BASE_PITCH = 1.05
-    const BASE_ROLL  = -0.18
-    group.rotation.x = BASE_PITCH
-    group.rotation.z = BASE_ROLL
-
-    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (CENTERED & TRAVELING 3D MOTION) ─── */
+    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (PERFECTLY CENTERED VERTICAL TRAVEL) ─── */
     let currentProgress = 0, alive = true
     const loop = () => {
       if (!alive) return
@@ -372,14 +367,16 @@ function useCoinScene(canvasRef) {
       const target = scrollProgressRef.current
       currentProgress += (target - currentProgress) * 0.08
 
-      // 1. VERTICAL TRAVEL THROUGH SCREEN: Moves smoothly from top (+0.4) down to bottom (-0.4) as you scroll
-      group.position.y = (0.5 - currentProgress) * 0.8 + Math.sin(currentProgress * Math.PI * 3) * 0.06
-      group.position.x = Math.sin(currentProgress * Math.PI * 2) * 0.08
+      // 1. PERFECT VERTICAL TRAVEL: Strictly down the center vertical midline (x = 0)
+      group.position.x = 0
+      group.position.z = 0
+      group.position.y = (0.5 - currentProgress) * 0.7
 
-      // 2. CONTINUOUS 3D AXIAL SPIN & TILT
+      // 2. SYMMETRICAL 3D SAUCER PITCH & AXIAL SPIN
+      group.rotation.x = 1.05
+      group.rotation.y = 0
+      group.rotation.z = 0
       coin.rotation.y = currentProgress * Math.PI * 4
-      group.rotation.x = BASE_PITCH + Math.sin(currentProgress * Math.PI) * 0.18
-      group.rotation.z = BASE_ROLL + (currentProgress - 0.5) * 0.22
 
       renderer.render(scene, camera)
     }
@@ -628,18 +625,20 @@ export default function Section6Carousel() {
         style={{
           position: 'absolute',
           top: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: COL_CENTER,
+          left: 0,
+          width: '100%',
           height: '100%',
           pointerEvents: 'none',
           zIndex: 10,
+          display: 'flex',
+          justifyContent: 'center',
         }}
       >
         <div style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
+          width: 380,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
