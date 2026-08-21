@@ -157,7 +157,7 @@ function useCoinScene(canvasRef) {
     const W = 380, H = 380
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.setSize(W, H, false)
+    renderer.setSize(W, H, true)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.45
     renderer.shadowMap.enabled = true
@@ -297,8 +297,6 @@ function useCoinScene(canvasRef) {
     cx.font = 'bold 100px Georgia, serif'
     cx.textBaseline = 'middle'
     cx.fillText('A', 0, 8)
-    cx.restore()
-
     // Fine organic noise
     const imgData = cx.getImageData(0, 0, SZ, SZ)
     const d = imgData.data
@@ -366,9 +364,9 @@ function useCoinScene(canvasRef) {
       currentProgress += (target.progress - currentProgress) * 0.08
       currentScale += (target.scale - currentScale) * 0.08
 
-      // Locked in dead center of screen
+      // Saucer tilt ~20° — face clearly visible, not edge-on
       group.position.set(0, 0, 0)
-      group.rotation.set(1.05, 0, 0)
+      group.rotation.set(0.35, 0, 0)
       group.scale.set(currentScale, currentScale, currentScale)
 
       // Continuous axial rotation tied to scroll
