@@ -362,7 +362,7 @@ function useCoinScene(canvasRef) {
     group.rotation.x = BASE_PITCH
     group.rotation.z = BASE_ROLL
 
-    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (CENTERED & 3D ROTATION) ─── */
+    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (CENTERED & TRAVELING 3D MOTION) ─── */
     let currentProgress = 0, alive = true
     const loop = () => {
       if (!alive) return
@@ -372,10 +372,14 @@ function useCoinScene(canvasRef) {
       const target = scrollProgressRef.current
       currentProgress += (target - currentProgress) * 0.08
 
-      // Continuous 3D spin on the face as user scrolls
+      // 1. VERTICAL TRAVEL THROUGH SCREEN: Moves smoothly from top (+0.4) down to bottom (-0.4) as you scroll
+      group.position.y = (0.5 - currentProgress) * 0.8 + Math.sin(currentProgress * Math.PI * 3) * 0.06
+      group.position.x = Math.sin(currentProgress * Math.PI * 2) * 0.08
+
+      // 2. CONTINUOUS 3D AXIAL SPIN & TILT
       coin.rotation.y = currentProgress * Math.PI * 4
-      group.rotation.x = BASE_PITCH + Math.sin(currentProgress * Math.PI) * 0.15
-      group.rotation.z = BASE_ROLL + (currentProgress - 0.5) * 0.2
+      group.rotation.x = BASE_PITCH + Math.sin(currentProgress * Math.PI) * 0.18
+      group.rotation.z = BASE_ROLL + (currentProgress - 0.5) * 0.22
 
       renderer.render(scene, camera)
     }
