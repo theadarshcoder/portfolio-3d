@@ -147,7 +147,7 @@ const VISUAL_MAP = { telemetry:TelemetryCard, map:MapCard, archive:ArchiveCard, 
 /* ─────────────────────────────────────────────
    HIGH-QUALITY INTERACTIVE 3D COIN — Three.js
    ───────────────────────────────────────────── */
-function useCoinScene(canvasRef, moverRef) {
+function useCoinScene(canvasRef) {
   const scrollProgressRef = useRef(0)
 
   useEffect(() => {
@@ -159,7 +159,7 @@ function useCoinScene(canvasRef, moverRef) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(W, H, false)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.4
+    renderer.toneMappingExposure = 1.45
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
@@ -167,23 +167,23 @@ function useCoinScene(canvasRef, moverRef) {
     const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 100)
     camera.position.set(0, 0, 4.3)
 
-    /* ─── STUDIO LIGHTING ─── */
-    scene.add(new THREE.AmbientLight(0x5c381e, 1.2))
+    /* ─── VIBRANT STUDIO LIGHTING ─── */
+    scene.add(new THREE.AmbientLight(0x5c381e, 1.4))
 
-    const key = new THREE.DirectionalLight(0xfff0d0, 5.0)
-    key.position.set(3, 5, 4)
+    const key = new THREE.DirectionalLight(0xfff0d0, 5.2)
+    key.position.set(2, 5, 5)
     scene.add(key)
 
     const fill = new THREE.PointLight(0xff9933, 4.0, 20)
-    fill.position.set(-4, -2, 3)
+    fill.position.set(-4, -2, 4)
     scene.add(fill)
 
     const rim = new THREE.PointLight(0xffd599, 3.5, 15)
-    rim.position.set(3, -3, 3)
+    rim.position.set(4, -3, 3)
     scene.add(rim)
 
-    const topLight = new THREE.PointLight(0xffeedd, 3.0, 12)
-    topLight.position.set(0, 4, 2)
+    const topLight = new THREE.PointLight(0xffeedd, 3.2, 12)
+    topLight.position.set(0, 4, 3)
     scene.add(topLight)
 
     /* ─── HIGH-CONTRAST TACTILE TEXTURE ─── */
@@ -356,7 +356,13 @@ function useCoinScene(canvasRef, moverRef) {
     group.add(coin)
     scene.add(group)
 
-    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (VERTICAL + 3D ROTATION) ─── */
+    // Base presentation orientation: tilted ~60 deg towards camera so top face is ALWAYS clearly shown
+    const BASE_PITCH = 1.05
+    const BASE_ROLL  = -0.18
+    group.rotation.x = BASE_PITCH
+    group.rotation.z = BASE_ROLL
+
+    /* ─── PURE SCROLL-DRIVEN ANIMATION LOOP (CENTERED & 3D ROTATION) ─── */
     let currentProgress = 0, alive = true
     const loop = () => {
       if (!alive) return
@@ -366,20 +372,10 @@ function useCoinScene(canvasRef, moverRef) {
       const target = scrollProgressRef.current
       currentProgress += (target - currentProgress) * 0.08
 
-      // 1. VERTICAL TRAVEL: Move coin throughout the screen from top to bottom as user scrolls (-32vh to +32vh)
-      const translateY = (currentProgress - 0.5) * 64 // in vh
-      if (moverRef?.current) {
-        moverRef.current.style.transform = `translateY(${translateY.toFixed(2)}vh)`
-      }
-
-      // 2. Continuous 3D tumbling & spinning rotation strictly tied to scroll
-      // Pitch tilt (tumbles smoothly as you scroll down)
-      group.rotation.x = 0.85 + Math.sin(currentProgress * Math.PI) * 0.35
-      // Yaw rotation (angles dynamically left to right)
-      group.rotation.y = (currentProgress - 0.5) * 0.85
-      // Roll & axial spin (spins continuously on its surface)
+      // Continuous 3D spin on the face as user scrolls
       coin.rotation.y = currentProgress * Math.PI * 4
-      group.rotation.z = -0.2 + (currentProgress - 0.5) * 0.4
+      group.rotation.x = BASE_PITCH + Math.sin(currentProgress * Math.PI) * 0.15
+      group.rotation.z = BASE_ROLL + (currentProgress - 0.5) * 0.2
 
       renderer.render(scene, camera)
     }
@@ -389,7 +385,7 @@ function useCoinScene(canvasRef, moverRef) {
       alive = false
       renderer.dispose()
     }
-  }, [canvasRef, moverRef])
+  }, [canvasRef])
 
   return scrollProgressRef
 }
@@ -400,11 +396,10 @@ function useCoinScene(canvasRef, moverRef) {
 export default function Section6Carousel() {
   const sectionRef   = useRef(null)
   const canvasRef    = useRef(null)
-  const moverRef     = useRef(null)
   const leftRefs     = useRef([])
   const rightRefs    = useRef([])
   const rafRef       = useRef(null)
-  const scrollProgressRef = useCoinScene(canvasRef, moverRef)
+  const scrollProgressRef = useCoinScene(canvasRef)
 
   const frame = useCallback(() => {
     rafRef.current = requestAnimationFrame(frame)
@@ -645,55 +640,44 @@ export default function Section6Carousel() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
         }}>
-          <div
-            ref={moverRef}
-            style={{
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              willChange: 'transform',
-            }}
-          >
-            {/* CSS warm glow bloom — layered radial gradients */}
-            <div style={{
-              position: 'absolute',
-              width: 500,
-              height: 500,
-              borderRadius: '50%',
-              background: 'radial-gradient(ellipse at center, rgba(255,160,50,0.22) 0%, rgba(200,100,20,0.10) 35%, transparent 70%)',
-              filter: 'blur(32px)',
-              transform: 'translateY(10px)',
-              pointerEvents: 'none',
-            }} />
-            <div style={{
-              position: 'absolute',
-              width: 300,
-              height: 300,
-              borderRadius: '50%',
-              background: 'radial-gradient(ellipse at center, rgba(255,180,60,0.30) 0%, transparent 60%)',
-              filter: 'blur(16px)',
-              pointerEvents: 'none',
-            }} />
+          {/* CSS warm glow bloom — layered radial gradients */}
+          <div style={{
+            position: 'absolute',
+            width: 500,
+            height: 500,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at center, rgba(255,160,50,0.22) 0%, rgba(200,100,20,0.10) 35%, transparent 70%)',
+            filter: 'blur(32px)',
+            transform: 'translateY(10px)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute',
+            width: 300,
+            height: 300,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at center, rgba(255,180,60,0.30) 0%, transparent 60%)',
+            filter: 'blur(16px)',
+            pointerEvents: 'none',
+          }} />
 
-            {/* The coin canvas */}
-            <canvas
-              ref={canvasRef}
-              width={380}
-              height={380}
-              style={{
-                width: 380,
-                height: 380,
-                display: 'block',
-                position: 'relative',
-                zIndex: 2,
-                /* Subtle drop shadow to reinforce 3D float */
-                filter: 'drop-shadow(0 24px 48px rgba(255,140,40,0.25)) drop-shadow(0 8px 20px rgba(0,0,0,0.8))',
-              }}
-            />
-          </div>
+          {/* The coin canvas */}
+          <canvas
+            ref={canvasRef}
+            width={380}
+            height={380}
+            style={{
+              width: 380,
+              height: 380,
+              display: 'block',
+              position: 'relative',
+              zIndex: 2,
+              /* Subtle drop shadow to reinforce 3D float */
+              filter: 'drop-shadow(0 24px 48px rgba(255,140,40,0.25)) drop-shadow(0 8px 20px rgba(0,0,0,0.8))',
+            }}
+          />
         </div>
       </div>
     </section>
